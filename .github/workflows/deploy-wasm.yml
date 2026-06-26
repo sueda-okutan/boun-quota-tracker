@@ -1,0 +1,96 @@
+name: Deploy Qt WebAssembly
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Install Qt for WebAssembly
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.9.2"
+          host: "all_os"
+          target: "wasm"
+          arch: "wasm_singlethread"
+          cache: true
+
+      - name: Fix Qt WebAssembly tool permissions
+        run: chmod +x "$QT_ROOT_DIR/bin/"*
+
+      - name: Install Emscripten SDK
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          cd "$RUNNER_TEMP/emsdk"
+          ./emsdk install 3.1.70
+          ./emsdk activate 3.1.70
+          echo "EMSDK=$RUNNER_TEMP/emsdk" >> "$GITHUB_ENV"
+
+      - name: Configure CMake
+        run: |
+          source "$EMSDK/emsdk_env.sh"
+          "$QT_ROOT_DIR/bin/qt-cmake" -G Ninja -S . -B build-wasm -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          source "$EMSDK/emsdk_env.sh"
+          cmake --build build-wasm --parallel
+
+      - name: Stage Pages artifact
+        run: |
+          mkdir -p site
+          cp build-wasm/*.html site/
+          cp build-wasm/*.js site/
+          cp build-wasm/*.wasm site/
+          if ls build-wasm/*.data >/dev/null 2>&1; then cp build-wasm/*.data site/; fi
+          if ls build-wasm/*.worker.js >/dev/null 2>&1; then cp build-wasm/*.worker.js site/; fi
+          if ls build-wasm/qtloader.js >/dev/null 2>&1; then cp build-wasm/qtloader.js site/; fi
+          if ls build-wasm/qtlogo.svg >/dev/null 2>&1; then cp build-wasm/qtlogo.svg site/; fi
+          if [ -f site/boun_quota_tracker.html ]; then
+            mv site/boun_quota_tracker.html site/index.html
+          else
+            echo "Expected boun_quota_tracker.html was not found."
+            ls -la site
+            exit 1
+          fi
+          touch site/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
