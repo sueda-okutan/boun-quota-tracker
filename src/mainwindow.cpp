@@ -2,7 +2,6 @@
 
 #include <QApplication>
 #include <QColor>
-#include <QComboBox>
 #include <QDate>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -52,11 +51,9 @@ MainWindow::MainWindow(QWidget* parent)
     , monitor_(new QuotaMonitor(this))
 {
     buildUi();
-    populateSemesters();
     resetTitle();
 
     monitor_->setIntervalSeconds(intervalSpinBox_->value());
-    monitor_->setSemester(semesterComboBox_->currentText());
 
     connect(monitor_, &QuotaMonitor::resultReady,
             this, &MainWindow::onResultReady);
@@ -91,9 +88,11 @@ void MainWindow::buildUi() {
 
     auto* controls = new QHBoxLayout();
 
+    // Read-only: the server picks the active term; the app cannot change it.
+    // Populated from the donem value parsed out of quota responses.
     controls->addWidget(new QLabel("Semester:", central));
-    semesterComboBox_ = new QComboBox(central);
-    controls->addWidget(semesterComboBox_);
+    semesterLabel_ = new QLabel("—", central);
+    controls->addWidget(semesterLabel_);
 
     controls->addWidget(new QLabel("Interval (s):", central));
     intervalSpinBox_ = new QSpinBox(central);
@@ -152,28 +151,8 @@ void MainWindow::buildUi() {
     connect(startButton_, &QPushButton::clicked, this, &MainWindow::onStartClicked);
     connect(stopButton_, &QPushButton::clicked, this, &MainWindow::onStopClicked);
     connect(refreshButton_, &QPushButton::clicked, this, &MainWindow::onRefreshClicked);
-    connect(semesterComboBox_, &QComboBox::currentTextChanged,
-            this, &MainWindow::onSemesterChanged);
     connect(intervalSpinBox_, qOverload<int>(&QSpinBox::valueChanged),
             this, &MainWindow::onIntervalChanged);
-}
-
-void MainWindow::populateSemesters() {
-    // Build a handful of recent academic years in YYYY/YYYY-T format. The
-    // selected value is stored on each CourseRequest but is NOT submitted to the
-    // confirmed quota endpoint.
-    const int currentYear = QDate::currentDate().year();
-
-    // Offer the upcoming year first, then walk back two years.
-    for (int startYear = currentYear; startYear >= currentYear - 2; --startYear) {
-        for (int term = 3; term >= 1; --term) {
-            const QString value = QString("%1/%2-%3")
-                                      .arg(startYear)
-                                      .arg(startYear + 1)
-                                      .arg(term);
-            semesterComboBox_->addItem(value);
-        }
-    }
 }
 
 void MainWindow::resetTitle() {
@@ -181,9 +160,9 @@ void MainWindow::resetTitle() {
 }
 
 bool MainWindow::applyCoursesFromInput() {
+    // No semester is chosen by the user; the server uses its own active term.
     const QStringList invalid =
-        monitor_->setCoursesFromText(courseInput_->toPlainText(),
-                                     semesterComboBox_->currentText());
+        monitor_->setCoursesFromText(courseInput_->toPlainText(), QString());
 
     // Rebuild the table from scratch, pre-creating one row per course in the
     // order they were entered. Doing this up front (rather than lazily as
@@ -234,15 +213,23 @@ void MainWindow::onStopClicked() {
 }
 
 void MainWindow::onRefreshClicked() {
-    if (!applyCoursesFromInput()) {
-        return;
+    // While monitoring, a manual refresh should poll the courses already being
+    // tracked WITHOUT rebuilding them: re-applying the input would wipe the
+    // availability history (breaking notifications) and rebuild the table. Only
+    // (re)apply the input when not currently monitoring.
+    if (!monitor_->isRunning()) {
+        if (!applyCoursesFromInput()) {
+            return;
+        }
     }
     statusLabel_->setText("Refreshing...");
     monitor_->refreshNow();
-}
 
-void MainWindow::onSemesterChanged() {
-    monitor_->setSemester(semesterComboBox_->currentText());
+    // Restore the monitoring status line so the bar doesn't get stuck on
+    // "Refreshing..." while periodic polling is still active.
+    if (monitor_->isRunning()) {
+        onMonitoringStarted();
+    }
 }
 
 void MainWindow::onIntervalChanged(int seconds) {
@@ -267,6 +254,11 @@ void MainWindow::onMonitoringStopped() {
 void MainWindow::onResultReady(const CourseQuotaResult& result) {
     const QString label = result.request.label();
     const int row = rowForCourse(label);
+
+    // Show the server's active term (parsed from the response) once we know it.
+    if (!result.semester.isEmpty()) {
+        semesterLabel_->setText(result.semester);
+    }
 
     QString department;
     QString status;

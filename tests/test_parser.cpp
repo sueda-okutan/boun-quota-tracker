@@ -31,6 +31,7 @@ private slots:
     void realResponseHtml();
     void unlimitedQuota();
     void noSuchCourse();
+    void semesterParsed();
     void stripsInnerMarkup();
 
     // ---- POST body ----
@@ -181,6 +182,30 @@ void TestParser::noSuchCourse() {
     QVERIFY(!result.fetchOk);
     QCOMPARE(result.rows.size(), 0);
     QCOMPARE(result.errorMessage, QString("Course not offered in this semester."));
+}
+
+void TestParser::semesterParsed() {
+    // The server echoes its active term in an HTML comment as donem='YYYY/YYYY-T'.
+    // The parser must extract it into result.semester (this is the only source
+    // of the current semester for the UI).
+    const QString html =
+        "<strong>HTR 312.01</strong>"
+        "<!-- ... where ders='HTR  312' and section='01' and donem='2025/2026-3' -->"
+        "<tr class='schtd'><td>ALL</td><td>ALL</td><td>45</td><td>45</td></tr>";
+
+    CourseQuotaResult result =
+        QuotaParser::parseQuotaHtml(html, makeRequest("HTR", "312", "01"));
+
+    QCOMPARE(result.semester, QString("2025/2026-3"));
+
+    // It is also present on a "No Such Course" response, so the UI can still show
+    // the active term even when the queried course is not offered.
+    const QString notOffered =
+        "<!-- where ders='ie  495' and donem='2025/2026-3' -->"
+        "<center>No Such Course In This Semester...</center>";
+    CourseQuotaResult r2 =
+        QuotaParser::parseQuotaHtml(notOffered, makeRequest("IE", "495", "01"));
+    QCOMPARE(r2.semester, QString("2025/2026-3"));
 }
 
 void TestParser::stripsInnerMarkup() {

@@ -47,6 +47,7 @@ struct QuotaRow {
 struct CourseQuotaResult {
     CourseRequest request;
     QString courseLabel;
+    QString semester;          // server's active term (donem), parsed from the response
     QVector<QuotaRow> rows;
     bool fetchOk = false;
     QString errorMessage;

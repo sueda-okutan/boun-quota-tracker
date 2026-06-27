@@ -53,6 +53,17 @@ CourseQuotaResult QuotaParser::parseQuotaHtml(const QString& html, const CourseR
         }
     }
 
+    // Active term: the server echoes its query in an HTML comment that includes
+    // donem='YYYY/YYYY-T'. This is the only authoritative source for the current
+    // semester (the app does not choose it).
+    static const QRegularExpression semesterRe(
+        R"(donem\s*=\s*'([^']+)')",
+        QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch semesterMatch = semesterRe.match(normalized);
+    if (semesterMatch.hasMatch()) {
+        result.semester = semesterMatch.captured(1).trimmed();
+    }
+
     // Each quota data row carries class="schtd" (single or double quotes).
     static const QRegularExpression rowRe(
         R"(<tr[^>]*class\s*=\s*['"]schtd['"][^>]*>(.*?)</tr>)",

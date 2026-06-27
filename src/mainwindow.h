@@ -11,7 +11,6 @@
 #endif
 
 class QTextEdit;
-class QComboBox;
 class QSpinBox;
 class QPushButton;
 class QTableWidget;
@@ -28,7 +27,6 @@ private slots:
     void onStartClicked();
     void onStopClicked();
     void onRefreshClicked();
-    void onSemesterChanged();
     void onIntervalChanged(int seconds);
 
     void onResultReady(const CourseQuotaResult& result);
@@ -39,7 +37,6 @@ private slots:
 
 private:
     void buildUi();
-    void populateSemesters();
     bool applyCoursesFromInput();   // pushes textarea content into the monitor
     int rowForCourse(const QString& label);   // find-or-create table row
     void applyRowColor(int row);   // paint base or lighter (if selected) color
@@ -48,7 +45,7 @@ private:
     QuotaMonitor* monitor_;
 
     QTextEdit* courseInput_;
-    QComboBox* semesterComboBox_;
+    QLabel* semesterLabel_;   // read-only; shows the server's active term
     QSpinBox* intervalSpinBox_;
     QPushButton* startButton_;
     QPushButton* stopButton_;
