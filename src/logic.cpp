@@ -115,6 +115,12 @@ void QuotaMonitor::stop() {
 
 void QuotaMonitor::refreshNow() {
     pollAll();
+    // If monitoring is active, realign the periodic timer so the next automatic
+    // poll is a full interval after this manual refresh (avoids a poll landing
+    // immediately after a refresh, and keeps periodic polling running).
+    if (timer_->isActive()) {
+        timer_->start();   // restart resets the interval countdown
+    }
 }
 
 void QuotaMonitor::pollAll() {
