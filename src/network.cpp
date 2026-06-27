@@ -74,7 +74,14 @@ QuotaNetworkClient::QuotaNetworkClient(QObject* parent)
 }
 
 QUrl QuotaNetworkClient::quotaEndpoint() const {
+#if defined(__EMSCRIPTEN__) && defined(BOUN_QUOTA_PROXY_URL)
+    // In the browser, a direct POST to BOUN is blocked by CORS. Route through the
+    // CORS proxy you control (see proxy/). The URL is baked in at build time via
+    // the BOUN_QUOTA_PROXY_URL CMake cache variable.
+    return QUrl(QStringLiteral(BOUN_QUOTA_PROXY_URL));
+#else
     return QUrl("https://registration.boun.edu.tr/scripts/quotasearch.asp");
+#endif
 }
 
 QNetworkRequest QuotaNetworkClient::buildRequest() const {
@@ -84,9 +91,15 @@ QNetworkRequest QuotaNetworkClient::buildRequest() const {
         QNetworkRequest::ContentTypeHeader,
         "application/x-www-form-urlencoded");
 
+#ifndef __EMSCRIPTEN__
+    // Origin / Referer / User-Agent are forbidden request headers in the browser:
+    // the browser controls them and ignores attempts to set them, and adding
+    // custom headers only complicates the CORS preflight. The proxy supplies the
+    // values BOUN expects server-side, so the WASM build must not set them here.
     request.setRawHeader("Origin", "https://registration.boun.edu.tr");
     request.setRawHeader("Referer", "https://registration.boun.edu.tr/quotaentry.htm");
     request.setRawHeader("User-Agent", "BOUN-Quota-Tracker/1.0 Qt");
+#endif
     request.setRawHeader(
         "Accept",
         "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
