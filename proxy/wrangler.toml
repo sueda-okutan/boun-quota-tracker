@@ -1,0 +1,7 @@
+# Cloudflare Worker config for the BOUN quota CORS proxy.
+# Deploy with:  npx wrangler deploy   (from this proxy/ directory)
+# See proxy/README.md for full setup and how to wire the URL into the app.
+
+name = "boun-quota-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"

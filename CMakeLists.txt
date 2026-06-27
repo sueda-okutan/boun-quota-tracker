@@ -44,11 +44,33 @@ target_link_libraries(boun_quota_tracker
         Qt6::Network
 )
 
+# URL of the CORS proxy used by the WebAssembly build (see proxy/). The browser
+# blocks a direct POST to BOUN, so the WASM build POSTs here instead. Native
+# builds ignore this and talk to BOUN directly.
+#
+# Defaults to the deployed Cloudflare Worker so the WASM/Pages build works out of
+# the box. Override at configure time with
+#   -DBOUN_QUOTA_PROXY_URL="https://<your-worker>.workers.dev"
+# (the deploy-wasm.yml workflow passes the BOUN_QUOTA_PROXY_URL repo variable,
+# which overrides this default when set).
+set(BOUN_QUOTA_PROXY_URL "https://boun-quota-proxy.suedanisaokutan.workers.dev"
+    CACHE STRING "CORS proxy URL for the WASM build")
+
 if(EMSCRIPTEN)
     target_compile_definitions(boun_quota_tracker PRIVATE BOUN_QUOTA_WASM=1)
     target_compile_definitions(boun_quota_core PRIVATE BOUN_QUOTA_WASM=1)
     set_target_properties(boun_quota_tracker PROPERTIES OUTPUT_NAME "boun_quota_tracker")
     target_link_options(boun_quota_tracker PRIVATE "SHELL:-sALLOW_MEMORY_GROWTH=1")
+    if(BOUN_QUOTA_PROXY_URL)
+        # Define as a quoted C string literal for QStringLiteral(...) in network.cpp.
+        target_compile_definitions(boun_quota_core
+            PRIVATE BOUN_QUOTA_PROXY_URL="${BOUN_QUOTA_PROXY_URL}")
+    else()
+        message(WARNING
+            "BOUN_QUOTA_PROXY_URL is not set: the WASM build will POST directly "
+            "to BOUN and fail with a CORS error in the browser. Set it to your "
+            "deployed proxy URL (see proxy/README.md).")
+    endif()
 else()
     target_compile_definitions(boun_quota_tracker PRIVATE BOUN_QUOTA_WASM=0)
     target_compile_definitions(boun_quota_core PRIVATE BOUN_QUOTA_WASM=0)

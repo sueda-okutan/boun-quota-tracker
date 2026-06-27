@@ -50,9 +50,22 @@ jobs:
           echo "EMSDK=$RUNNER_TEMP/emsdk" >> "$GITHUB_ENV"
 
       - name: Configure CMake
+        env:
+          # Optional override. If the BOUN_QUOTA_PROXY_URL repo variable is set
+          # (Settings -> Secrets and variables -> Actions -> Variables), it is
+          # used; otherwise CMakeLists.txt's built-in default proxy URL applies.
+          PROXY_URL: ${{ vars.BOUN_QUOTA_PROXY_URL }}
         run: |
           source "$EMSDK/emsdk_env.sh"
-          "$QT_ROOT_DIR/bin/qt-cmake" -G Ninja -S . -B build-wasm -DCMAKE_BUILD_TYPE=Release
+          # Only pass the flag when the repo variable is non-empty, so an unset
+          # variable doesn't override the default proxy URL with an empty string.
+          PROXY_ARG=()
+          if [ -n "$PROXY_URL" ]; then
+            PROXY_ARG=(-DBOUN_QUOTA_PROXY_URL="$PROXY_URL")
+          fi
+          "$QT_ROOT_DIR/bin/qt-cmake" -G Ninja -S . -B build-wasm \
+            -DCMAKE_BUILD_TYPE=Release \
+            "${PROXY_ARG[@]}"
 
       - name: Build
         run: |
