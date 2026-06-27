@@ -35,12 +35,14 @@ private slots:
     void onCourseBecameAvailable(const CourseQuotaResult& result);
     void onMonitoringStarted();
     void onMonitoringStopped();
+    void onSelectionChanged();   // re-tint selected row to a lighter shade
 
 private:
     void buildUi();
     void populateSemesters();
     bool applyCoursesFromInput();   // pushes textarea content into the monitor
     int rowForCourse(const QString& label);   // find-or-create table row
+    void applyRowColor(int row);   // paint base or lighter (if selected) color
     void resetTitle();
 
     QuotaMonitor* monitor_;

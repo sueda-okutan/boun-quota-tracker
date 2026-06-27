@@ -47,6 +47,18 @@ public:
     bool isRunning() const { return timer_->isActive(); }
     int courseCount() const { return courses_.size(); }
 
+    // Monitored course labels in the order they were entered. The UI uses this
+    // to lay out table rows up front so the order stays stable regardless of the
+    // order in which async network replies arrive.
+    QStringList courseLabels() const {
+        QStringList labels;
+        labels.reserve(courses_.size());
+        for (const CourseRequest& c : courses_) {
+            labels << c.label();
+        }
+        return labels;
+    }
+
 public slots:
     void start();
     void stop();

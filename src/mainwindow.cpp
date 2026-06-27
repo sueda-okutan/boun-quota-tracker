@@ -1,10 +1,12 @@
 #include "mainwindow.h"
 
 #include <QApplication>
+#include <QColor>
 #include <QComboBox>
 #include <QDate>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
@@ -16,6 +18,10 @@
 #include <QWidget>
 
 namespace {
+
+// Custom item data role used to remember each cell's base (unselected) state
+// color, so a selected row can be redrawn as a lighter version of it.
+constexpr int kBaseColorRole = Qt::UserRole + 1;
 
 enum Column {
     ColCourse = 0,
@@ -115,8 +121,25 @@ void MainWindow::buildUi() {
     }
     quotaTable_->setHorizontalHeaderLabels(headers);
     quotaTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    // Don't bold/highlight the header section of the selected column or row.
+    quotaTable_->horizontalHeader()->setHighlightSections(false);
+    quotaTable_->verticalHeader()->setHighlightSections(false);
+    // Wrap long cell text (e.g. the Error column) and let row height grow to fit
+    // it, so error messages are fully readable. Hovering also shows a tooltip.
+    quotaTable_->setWordWrap(true);
+    quotaTable_->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     quotaTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     quotaTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    // Disable Qt's default opaque-blue selection highlight. We re-tint the
+    // selected row ourselves to a lighter version of its own state color
+    // (see onSelectionChanged). Keep the normal text color, not white.
+    quotaTable_->setStyleSheet(
+        "QTableWidget::item:selected {"
+        "  background: transparent;"
+        "  color: palette(text);"
+        "}");
+    connect(quotaTable_, &QTableWidget::itemSelectionChanged,
+            this, &MainWindow::onSelectionChanged);
     mainLayout->addWidget(quotaTable_);
 
     // --- Status ---
@@ -162,9 +185,15 @@ bool MainWindow::applyCoursesFromInput() {
         monitor_->setCoursesFromText(courseInput_->toPlainText(),
                                      semesterComboBox_->currentText());
 
-    // Rebuild the table mapping; results will repopulate rows as they arrive.
+    // Rebuild the table from scratch, pre-creating one row per course in the
+    // order they were entered. Doing this up front (rather than lazily as
+    // results arrive) keeps the row order stable: async network replies can
+    // finish in any order, but the layout is already fixed.
     rowByCourse_.clear();
     quotaTable_->setRowCount(0);
+    for (const QString& label : monitor_->courseLabels()) {
+        rowForCourse(label);
+    }
 
     if (!invalid.isEmpty()) {
         statusLabel_->setText(
@@ -248,7 +277,10 @@ void MainWindow::onResultReady(const CourseQuotaResult& result) {
 
     if (!result.fetchOk) {
         state = "ERROR";
-        quotaTable_->item(row, ColError)->setText(result.errorMessage);
+        QTableWidgetItem* errorItem = quotaTable_->item(row, ColError);
+        errorItem->setText(result.errorMessage);
+        // Full message on hover, since the column may be too narrow to show it.
+        errorItem->setToolTip(result.errorMessage);
     } else {
         // Aggregate across rows: sum quota/current, available = quota - current.
         int totalQuota = 0;
@@ -275,7 +307,9 @@ void MainWindow::onResultReady(const CourseQuotaResult& result) {
         available = anyUnlimited ? "Unlimited"
                                  : QString::number(result.totalAvailableSeats());
         state = result.hasAnyAvailableSeat() ? "AVAILABLE" : "FULL";
-        quotaTable_->item(row, ColError)->setText("");
+        QTableWidgetItem* errorItem = quotaTable_->item(row, ColError);
+        errorItem->setText("");
+        errorItem->setToolTip("");   // clear any stale error tooltip
     }
 
     quotaTable_->item(row, ColCourse)->setText(result.courseLabel.isEmpty()
@@ -292,16 +326,48 @@ void MainWindow::onResultReady(const CourseQuotaResult& result) {
     // Row coloring reflects state.
     QColor bg;
     if (state == "AVAILABLE") {
-        bg = QColor(198, 239, 206);   // green
+        bg = QColor(15, 220, 20);   // green
     } else if (state == "ERROR") {
-        bg = QColor(255, 235, 156);   // amber
+        bg = QColor(240, 185, 35);   // amber
     } else if (state == "FULL") {
-        bg = QColor(255, 199, 206);   // red
+        bg = QColor(200, 45, 35);   // red
     }
-    if (bg.isValid()) {
-        for (int c = 0; c < ColCount; ++c) {
-            quotaTable_->item(row, c)->setBackground(bg);
+    // Remember the base color on each cell (in a custom role) and paint the row,
+    // accounting for whether it is currently selected.
+    for (int c = 0; c < ColCount; ++c) {
+        quotaTable_->item(row, c)->setData(kBaseColorRole, bg);
+    }
+    applyRowColor(row);
+}
+
+void MainWindow::applyRowColor(int row) {
+    if (row < 0 || row >= quotaTable_->rowCount()) {
+        return;
+    }
+    const bool selected = quotaTable_->selectionModel()->isRowSelected(
+        row, QModelIndex());
+    for (int c = 0; c < ColCount; ++c) {
+        QTableWidgetItem* item = quotaTable_->item(row, c);
+        if (!item) {
+            continue;
         }
+        const QColor base = item->data(kBaseColorRole).value<QColor>();
+        if (!base.isValid()) {
+            // No state color for this row: clear any brush so it uses the
+            // default background.
+            item->setData(Qt::BackgroundRole, QVariant());
+            continue;
+        }
+        // Selected rows get a lighter version of the same color.
+        item->setBackground(selected ? base.lighter(140) : base);
+    }
+}
+
+void MainWindow::onSelectionChanged() {
+    // Repaint every row so the previously selected row reverts to its base color
+    // and the newly selected one is lightened.
+    for (int row = 0; row < quotaTable_->rowCount(); ++row) {
+        applyRowColor(row);
     }
 }
 
