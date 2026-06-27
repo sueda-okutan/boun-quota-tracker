@@ -9,10 +9,13 @@ University course quota availability and visibly notifies you when a seat opens.
 
 ## Features
 
-- **Input:** Course name(s) in the format of [ABBRV]<CODE>.<SECTION_NO> (e.g. TK221.01) (one course per line).
-- Periodic polling (configurable (minimum 30 seconds)) plus manual refresh.
-- Visible UI notification on a `full` to `available` transition: highlighted row, status label, window title change, and `QApplication::beep()` (plus an optional system tray notification on native desktop).
-- Native desktop build and Qt WebAssembly / GitHub Pages deployment.
+**Input:** Course name(s) in the format of (ABBRV)(CODE).(SECTION_NO) (e.g. TK221.01) (one course per line).
+
+Periodic polling (configurable (minimum 30 seconds)) plus manual refresh.
+
+Visible UI notification on a `full` to `available` transition: highlighted row, status label, window title change, and `QApplication::beep()` (plus an optional system tray notification on native desktop).
+
+Native desktop build and Qt WebAssembly / GitHub Pages deployment.
 
 ### Output
 
