@@ -4,6 +4,10 @@ build-*/
 cmake-build-*/
 out/
 
+# Wrangler / Cloudflare local state (contains account credentials — never commit)
+.wrangler/
+proxy/.wrangler/
+
 # CMake
 CMakeCache.txt
 CMakeFiles/
