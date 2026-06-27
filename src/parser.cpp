@@ -5,36 +5,32 @@
 #include <QRegularExpressionMatchIterator>
 
 namespace {
-
-// Strip HTML markup and entities from a cell/label so we are left with text.
-QString cleanHtmlText(QString s) {
-    s.replace("&nbsp;", " ");
-    s.remove(QRegularExpression("<[^>]*>"));
-    return s.simplified();
+    
+    // Strip HTML markup and entities from a cell/label so we are left with text.
+    QString cleanHtmlText(QString s) {
+        s.replace("&nbsp;", " ");
+        s.remove(QRegularExpression("<[^>]*>"));
+        return s.simplified();
+    }
+    // Parse an integer out of a cleaned cell. Keeps only leading digits. Result is in out argument, if successful.
+    // Returns false if no digits are present.
+    bool parseIntCell(const QString& cell, int& out) {
+        static const QRegularExpression digits(R"((\d+))");
+        QRegularExpressionMatch m = digits.match(cell);
+        if (!m.hasMatch()) {
+            return false;
+        }
+        bool ok = false;
+        int v = m.captured(1).toInt(&ok);
+        if (!ok) {
+            return false;
+        }
+        out = v;
+        return true;
+    }
 }
 
-// Parse an integer out of a cleaned cell. Keeps only leading digits so values
-// like "45 " or "45/48" still yield 45. Returns false if no digits are present.
-bool parseIntCell(const QString& cell, int& out) {
-    static const QRegularExpression digits(R"((\d+))");
-    QRegularExpressionMatch m = digits.match(cell);
-    if (!m.hasMatch()) {
-        return false;
-    }
-    bool ok = false;
-    int v = m.captured(1).toInt(&ok);
-    if (!ok) {
-        return false;
-    }
-    out = v;
-    return true;
-}
-
-} // namespace
-
-CourseQuotaResult QuotaParser::parseQuotaHtml(
-    const QString& html,
-    const CourseRequest& request)
+CourseQuotaResult QuotaParser::parseQuotaHtml(const QString& html, const CourseRequest& request)
 {
     CourseQuotaResult result;
     result.request = request;
