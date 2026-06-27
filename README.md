@@ -6,7 +6,7 @@ If you could not get a course due to quota restrictions, instead of passively wa
 
 > NOTE: Only quota availability is monitored periodically. Registration is not automated! No log in, register, enroll etc. function is provided.
 
-> NOTE: To use the app you have to build it, and run it using CLI, details in:
+> NOTE: To use the app you have to build it, and run it using CLI, details in: [Building — Qt WebAssembly](#building--qt-webassembly)
 
 > NOTE: On the web, the notification is only a visual change in the current implementation.
 ---
