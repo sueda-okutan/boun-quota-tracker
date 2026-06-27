@@ -1,10 +1,14 @@
 # BOUN Quota Tracker
 
-A C++17 / Qt 6 desktop and WebAssembly application that monitors Boğaziçi
-University course quota availability and visibly notifies you when a seat opens.
+A C++17 / Qt 6 desktop and WebAssembly application that monitors Boğaziçi University course quota availability and notifies you when a seat becomes available. 
 
-> Only quota availability is monitored periodically. Registration is not automated! No log in, register, enroll etc.
+If you could not get a course due to quota restrictions, instead of passively waiting for consents to be given, query your desired courses and sections, and leave the app (if you locally built it) or site open in the background: whenever a seat appears, you will be notified - go and get it!  
 
+> NOTE: Only quota availability is monitored periodically. Registration is not automated! No log in, register, enroll etc. function is provided.
+
+> NOTE: To use the app you have to build it, and run it using CLI, details in:
+
+> NOTE: On the web, the notification is only a visual change in the current implementation.
 ---
 
 ## Features
@@ -234,3 +238,11 @@ The tests live in `tests/` and never contact the live BOUN website. They cover:
 - the `quota > current` availability rule.
 
 ---
+
+## AI usage
+
+This project was built with substantial help with the assistance of Claude Code. 
+
+**Most of the code, and all the tests are AI-generated**, then reviewed and edited by me. The documentation is refined using AI.
+  
+If you reuse this project, assume AI involvement throughout and verify it yourself too.
